@@ -176,6 +176,7 @@ impl PatchworkServer {
             password: password.clone(),
         }));
     }
+
     pub fn get_url(&self, url: &str)
                    -> std::result::Result<Response, hyper::error::Error> {
         self.client.get(&*url).headers(self.headers.clone())
@@ -189,7 +190,6 @@ impl PatchworkServer {
         io::copy(&mut resp, &mut body).unwrap();
         Ok(String::from_utf8(body).unwrap())
     }
-
 
     pub fn post_test_result(&self, result: TestResult, checks_url: &str)
                             -> Result<StatusCode, hyper::error::Error> {
