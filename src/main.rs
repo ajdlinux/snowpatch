@@ -133,9 +133,7 @@ fn run_tests(settings: &Config, client: Arc<Client>, project: &Project, tag: &st
         }
         debug!("Build URL: {}", build_url_real);
         jenkins.wait_build(&build_url_real);
-        let test_result = jenkins.get_build_result(&build_url_real).unwrap_or(
-            { error!("Jenkins didn't return a test result"); TestState::pending }
-        );
+        let mut test_result = jenkins.get_build_result(&build_url_real).unwrap();
         info!("Jenkins job for {}/{} complete.", branch_name, job_name);
         results.push(TestResult {
             state: test_result,
