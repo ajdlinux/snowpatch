@@ -142,6 +142,14 @@ impl JenkinsBackend {
         }
     }
 
+    pub fn get_console_url(&self, build_url: &str) -> Option<String> {
+        match self.get_api_json_object(build_url).get("url").unwrap()
+            .as_string() {
+            None => None,
+            Some(url) => Some(format!("{}consoleText", url)),
+        }
+    }
+
     pub fn wait_build(&self, build_url: &str) -> JenkinsBuildStatus {
         // TODO: Implement a timeout?
         loop {

@@ -129,11 +129,15 @@ fn run_tests(settings: &Config, client: Arc<Client>, project: &Project, tag: &st
         let test_result = jenkins.get_build_result(&build_url_real).unwrap_or(
             { error!("Jenkins didn't return a test result"); TestState::PENDING }
         );
+        let console_url = jenkins.get_console_url(&build_url_real);
+        if console_url.is_none() {
+            error!("Jenkins didn't return a console URL");
+        }
         info!("Jenkins job for {}/{} complete. Result: {}", branch_name, job_name, test_result.string());
         results.push(TestResult {
             test_name: format!("{}/{}", branch_name.to_string(), job_name.to_string()),
             state: test_result.string(),
-            url: None, // TODO: link to Jenkins job log
+            url: console_url,
             summary: Some("TODO: get this summary from Jenkins".to_string()),
         });
     }
