@@ -32,7 +32,7 @@ use hyper::mime::{Mime, TopLevel, SubLevel, Attr, Value};
 use hyper::status::StatusCode;
 use hyper::client::response::Response;
 
-use rustc_serialize::json::{self, Json, ToJson, DecoderError};
+use rustc_serialize::json::{self, DecoderError};
 
 use utils;
 
@@ -104,31 +104,18 @@ pub struct Series {
 }
 
 // TODO: remove this when we have Jenkins result handling
-#[allow(dead_code)]
+#[allow(warnings)] // for not being camelcase because encoding
 #[derive(RustcEncodable, Clone)]
 pub enum TestState {
-    PENDING,
-    SUCCESS,
-    WARNING,
-    FAIL,
-}
-
-impl ToJson for TestState {
-    fn to_json(&self) -> Json {
-        Json::String(
-            match *self {
-                TestState::PENDING => "pending".to_string(),
-                TestState::SUCCESS => "success".to_string(),
-                TestState::WARNING => "warning".to_string(),
-                TestState::FAIL    => "fail".to_string(),
-            }
-        )
-    }
+    pending,
+    success,
+    warning,
+    fail,
 }
 
 impl Default for TestState {
     fn default() -> TestState {
-        TestState::PENDING
+        TestState::pending
     }
 }
 
