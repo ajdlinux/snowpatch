@@ -105,7 +105,7 @@ pub struct Series {
 
 // TODO: remove this when we have Jenkins result handling
 #[allow(warnings)] // for not being camelcase because encoding
-#[derive(RustcEncodable, Clone)]
+#[derive(RustcEncodable, Clone, PartialEq)]
 pub enum TestState {
     pending,
     success,
