@@ -33,6 +33,7 @@ extern crate env_logger;
 use git2::{Cred, BranchType, RemoteCallbacks, PushOptions};
 
 use hyper::Client;
+use hyper::client::RedirectPolicy;
 
 use docopt::Docopt;
 
@@ -280,12 +281,16 @@ fn main() {
             assert!(proxy.scheme() == "http");
             // This should pass even if no trailing slash is in http_proxy
             assert!(proxy.path() == "/");
-            Client::with_http_proxy(proxy.host_str().unwrap().to_string(),
-                proxy.port().unwrap_or(80))
+            let mut c = Client::with_http_proxy(proxy.host_str().unwrap().to_string(),
+                                                proxy.port().unwrap_or(80));
+            c.set_redirect_policy(RedirectPolicy::FollowAll);
+            c
         },
         _ => {
             debug!("snowpatch starting without a HTTP proxy");
-            Client::new()
+            let mut c = Client::new();
+            c.set_redirect_policy(RedirectPolicy::FollowAll);
+            c
         }
     });
 
