@@ -403,10 +403,15 @@ fn main() {
                     let hefty_tests;
                     let mbox = if patch.has_series() {
                         debug!("Patch {} has a series at {}!", &patch.name, &patch.series[0]);
-                        let dependencies = patchwork.get_patch_dependencies(&patch);
-                        let series = patchwork.get_series_by_url(&patch.series[0]).unwrap();
-                        hefty_tests = dependencies.len() == series.patches.len();
-                        patchwork.get_patches_mbox(dependencies)
+                        let series = patchwork.get_series_by_url(&patch.series[0]);
+                        if series.is_ok() {
+                            let dependencies = patchwork.get_patch_dependencies(&patch);
+                            hefty_tests = dependencies.len() == series.unwrap().patches.len();
+                            patchwork.get_patches_mbox(dependencies)
+                        } else {
+                            hefty_tests = true;
+                            patchwork.get_patch_mbox(&patch)
+                        }
                     } else {
                         hefty_tests = true;
                         patchwork.get_patch_mbox(&patch)

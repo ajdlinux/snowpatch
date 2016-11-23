@@ -227,9 +227,12 @@ impl PatchworkServer {
 
     pub fn get_patch_dependencies(&self, patch: &Patch) -> Vec<Patch> {
         // We assume the list of patches in a series are in order.
-        let series = self.get_series_by_url(&patch.series[0]).unwrap();
         let mut dependencies: Vec<Patch> = vec!();
-        for dependency in series.patches {
+        let series = self.get_series_by_url(&patch.series[0]);
+        if series.is_err() {
+            return dependencies;
+        }
+        for dependency in series.unwrap().patches {
             dependencies.push(self.get_patch_by_url(&dependency).unwrap());
             if dependency == patch.url {
                 break;
