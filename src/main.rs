@@ -144,7 +144,7 @@ fn run_tests(settings: &Config, client: Arc<Client>, project: &Project, tag: &st
             description: Some(format!("{}/{}", branch_name.to_string(),
                                       job_name.to_string()).to_string()),
             context: Some(format!("{}-{}", "snowpatch", job_name.to_string()).to_string()),
-            target_url: Some(format!("{}/consoleText/", build_url_real).to_string()),
+            target_url: Some(jenkins.get_results_url(&build_url_real, job_params)),
             .. Default::default()
         });
     }
