@@ -87,6 +87,13 @@ pub fn job_should_warn_on_fail(job: &BTreeMap<String, String>) -> bool {
     job.get("warn_on_fail").unwrap_or(&"false".to_string()).parse::<bool>().unwrap()
 }
 
+pub fn get_job_title(job: &BTreeMap<String, String>) -> String {
+    match job.get("name") {
+        Some(name) => name.to_string(),
+        None => job.get("job").unwrap().to_string()
+    }
+}
+
 pub fn parse(path: String) -> Config {
     let mut toml_config = String::new();
 

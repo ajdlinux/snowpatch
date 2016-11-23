@@ -104,6 +104,7 @@ fn run_tests(settings: &Config, client: Arc<Client>, project: &Project, tag: &st
     let project = project.clone();
     for job_params in &project.jobs {
         let job_name = job_params.get("job").unwrap();
+        let job_title = settings::get_job_title(job_params);
         if !hefty_tests && settings::job_is_hefty(job_params) {
             debug!("Skipping hefty test {}", job_name);
             continue;
@@ -113,13 +114,13 @@ fn run_tests(settings: &Config, client: Arc<Client>, project: &Project, tag: &st
             debug!("Param name {}, value {}", &param_name, &param_value);
             match param_name.as_ref() {
                 // TODO: Validate special parameter names in config at start of program
-                "job" => { },
+                "job" | "hefty" | "name" | "warn_on_fail" => { },
                 "remote" => jenkins_params.push((param_value, &project.remote_uri)),
                 "branch" => jenkins_params.push((param_value, tag)),
                 _ => jenkins_params.push((param_name, param_value)),
             }
         }
-        info!("Starting job: {}", &job_name);
+        info!("Starting job: {}", &job_title);
         let res = jenkins.start_test(job_name, jenkins_params)
             .unwrap_or_else(|err| panic!("Starting Jenkins test failed: {}", err));
         debug!("{:?}", &res);
@@ -138,12 +139,12 @@ fn run_tests(settings: &Config, client: Arc<Client>, project: &Project, tag: &st
             settings::job_should_warn_on_fail(job_params) {
                 test_result = TestState::warning;
         }
-        info!("Jenkins job for {}/{} complete.", branch_name, job_name);
+        info!("Jenkins job for {}/{} complete.", branch_name, job_title);
         results.push(TestResult {
             state: test_result,
-            description: Some(format!("{}/{}", branch_name.to_string(),
-                                      job_name.to_string()).to_string()),
-            context: Some(format!("{}-{}", "snowpatch", job_name.to_string()).to_string()),
+            description: Some(format!("Test {} on branch {}", job_title.to_string(),
+                                      branch_name.to_string()).to_string()),
+            context: Some(format!("{}-{}", "snowpatch", job_title.to_string()).to_string()),
             target_url: Some(jenkins.get_results_url(&build_url_real, job_params)),
             .. Default::default()
         });
