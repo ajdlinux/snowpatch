@@ -384,15 +384,19 @@ fn main() {
                 continue;
             }
 
-            let project = patchwork.get_project(&patch.project).unwrap();
+            if !patch.action_required() {
+                debug!("Skipping patch {} in state {}", patch.name, patch.state);
+                continue;
+            }
 
+            let project = patchwork.get_project(&patch.project).unwrap();
             // Skip if we're using -p and it's the wrong project
             if args.flag_project != "" && project.link_name != args.flag_project {
                 debug!("Skipping patch {} ({}) (wrong project: {})",
                        patch.name, patch.id, project.link_name);
                 continue;
             }
-                
+
             match settings.projects.get(&project.link_name) {
                 None => {
                     debug!("Project {} not configured for patch {}",

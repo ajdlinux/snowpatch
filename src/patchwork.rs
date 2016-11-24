@@ -82,7 +82,11 @@ pub struct Patch {
 
 impl Patch {
     pub fn has_series(&self) -> bool {
-            !&self.series.is_empty()
+        !&self.series.is_empty()
+    }
+
+    pub fn action_required(&self) -> bool {
+        &self.state == "new" || &self.state == "under-review"
     }
 }
 
