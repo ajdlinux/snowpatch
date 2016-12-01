@@ -15,11 +15,10 @@
 //
 
 use toml;
-use toml::{Parser, Value};
+
+//use serde::{self, Deserializer};
 
 use git2::{Repository, Error};
-
-use rustc_serialize::Decodable;
 
 use std::fs::File;
 use std::io::Read;
@@ -27,7 +26,7 @@ use std::collections::BTreeMap;
 
 // TODO: Give more informative error messages when we fail to parse.
 
-#[derive(RustcDecodable, Clone)]
+#[derive(Deserialize, Clone)]
 pub struct Git {
     pub user: String,
     pub public_key: Option<String>,
@@ -35,7 +34,7 @@ pub struct Git {
     pub passphrase: Option<String>
 }
 
-#[derive(RustcDecodable, Clone)]
+#[derive(Deserialize, Clone)]
 pub struct Patchwork {
     pub url: String,
     pub port: Option<u16>,
@@ -45,7 +44,7 @@ pub struct Patchwork {
 }
 
 // TODO: make this CI server agnostic (i.e buildbot or whatever)
-#[derive(RustcDecodable, Clone)]
+#[derive(Deserialize, Clone)]
 pub struct Jenkins {
     pub url: String,
     pub port: Option<u16>,
@@ -54,7 +53,7 @@ pub struct Jenkins {
     pub token: Option<String>
 }
 
-#[derive(RustcDecodable, Clone)]
+#[derive(Deserialize, Clone)]
 pub struct Project {
     pub repository: String,
     pub branches: Vec<String>,
@@ -71,7 +70,7 @@ impl Project {
     }
 }
 
-#[derive(RustcDecodable, Clone)]
+#[derive(Deserialize, Clone)]
 pub struct Config {
     pub git: Git,
     pub patchwork: Patchwork,
@@ -97,10 +96,17 @@ pub fn parse(path: String) -> Config {
     file.read_to_string(&mut toml_config)
         .unwrap_or_else(|err| panic!("Couldn't read config: {}", err));
 
-    let mut parser = Parser::new(&toml_config);
-    let toml = parser.parse();
+    let toml_config = toml::de::from_str::<Config>(&toml_config);
 
-    if toml.is_none() {
+    match toml_config {
+        Ok(config_inside) => config_inside, // Value::Table(config_inside),
+        Err(err) => {
+            error!("TOML error: {:?}", err);
+            panic!("Syntax error, exiting");
+            // TODO: Restore multi-error functionality
+        }
+    }
+    /*if toml.is_none() {
         for err in &parser.errors {
             let (loline, locol) = parser.to_linecol(err.lo);
             let (hiline, hicol) = parser.to_linecol(err.hi);
@@ -108,12 +114,10 @@ pub fn parse(path: String) -> Config {
                     err.desc, path, loline, locol, hiline, hicol);
         }
         panic!("Syntax error in TOML file, exiting.");
-    }
+    }*/
 
-    let config = Value::Table(toml.unwrap());
-
-    match Config::decode::<toml::Decoder>(&mut toml::Decoder::new(config)) {
-        Ok(t) => t,
-        Err(err) => panic!(format!("Couldn't deserialise config: {:?}", err))
-    }
+    //match Config::deserialize(&mut toml::Decoder::new(config)) {
+    //    Ok(t) => t,
+    //    Err(err) => panic!(format!("Couldn't deserialise config: {:?}", err))
+    //}
 }
