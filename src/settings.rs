@@ -16,21 +16,27 @@
 
 use toml;
 
-//use serde::{self, Deserializer};
+use serde::{self, Deserializer};
+
+use shellexpand;
 
 use git2::{Repository, Error};
 
 use std::fs::File;
 use std::io::Read;
 use std::collections::BTreeMap;
+use std::path::PathBuf;
 
 // TODO: Give more informative error messages when we fail to parse.
 
 #[derive(Deserialize, Clone)]
 pub struct Git {
     pub user: String,
-    pub public_key: Option<String>,
-    pub private_key: String,
+    // TODO deserialize with for option<pathbuf>
+    //#[serde(deserialize_with = "pathbuf_deserialize_option")]
+    pub public_key: Option<PathBuf>,
+    #[serde(deserialize_with = "pathbuf_deserialize")]
+    pub private_key: PathBuf,
     pub passphrase: Option<String>
 }
 
@@ -55,7 +61,8 @@ pub struct Jenkins {
 
 #[derive(Deserialize, Clone)]
 pub struct Project {
-    pub repository: String,
+    #[serde(deserialize_with = "pathbuf_deserialize")]
+    pub repository: PathBuf,
     pub branches: Vec<String>,
     pub test_all_branches: Option<bool>,
     pub remote_name: String,
@@ -67,6 +74,18 @@ pub struct Project {
 impl Project {
     pub fn get_repo(&self) -> Result<Repository, Error> {
         Repository::open(&self.repository)
+    }
+}
+
+
+fn pathbuf_deserialize<D: Deserializer>(d: D) -> Result<PathBuf, D::Error> {
+    let deserialised = serde::Deserialize::deserialize(d);
+    match deserialised {
+        Ok(toml::Value::String(ref s)) => {
+            let expanded = shellexpand::full(s).unwrap(); // TODO unwrap
+            Ok(PathBuf::from((*expanded).to_string()))
+        },
+        _ => Err(serde::de::Error::custom("Path needs to be a string")),
     }
 }
 

@@ -46,6 +46,7 @@ tempdir = "0.3"
 docopt = "0.7"
 log = "0.3"
 env_logger = "0.4"
+shellexpand = "0.1"
 
 [dev-dependencies]
 yup-hyper-mock = "2.0"
