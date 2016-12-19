@@ -19,6 +19,10 @@
 // Equivalent of -Werror
 #![deny(warnings)]
 
+// Clippy
+#![cfg_attr(feature="clippy", feature(plugin))]
+#![cfg_attr(feature="clippy", plugin(clippy))]
+
 extern crate hyper;
 extern crate rustc_serialize;
 extern crate git2;
