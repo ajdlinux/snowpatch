@@ -18,7 +18,7 @@ use std;
 use std::io::{self};
 use std::option::Option;
 use std::path::PathBuf;
-use std::fs::{File, OpenOptions};
+use std::fs::OpenOptions;
 use std::result::Result;
 use std::collections::BTreeMap;
 
@@ -230,6 +230,10 @@ impl PatchworkServer {
     }
 
     pub fn get_patch_dependencies(&self, patch: &Patch) -> Vec<Patch> {
+        if !patch.has_series() {
+            return vec!(patch.clone());
+        }
+
         // We assume the list of patches in a series are in order.
         let series = self.get_series_by_url(&patch.series[0]).unwrap();
         let mut dependencies: Vec<Patch> = vec!();
@@ -243,19 +247,7 @@ impl PatchworkServer {
     }
 
     pub fn get_patch_mbox(&self, patch: &Patch) -> PathBuf {
-        let dir = TempDir::new("snowpatch").unwrap().into_path();
-        let mut path = dir.clone();
-        let tag = utils::sanitise_path(patch.name.clone());
-        path.push(format!("{}.mbox", tag));
-
-        let mut mbox_resp = self.get_url(&patch.mbox).unwrap();
-
-        debug!("Saving patch to file {}", path.display());
-        let mut mbox = File::create(&path).unwrap_or_else(
-            |err| panic!("Couldn't create mbox file: {}", err));
-        io::copy(&mut mbox_resp, &mut mbox).unwrap_or_else(
-            |err| panic!("Couldn't save mbox from Patchwork: {}", err));
-        path
+        self.get_patches_mbox(self.get_patch_dependencies(patch))
     }
 
     pub fn get_patches_mbox(&self, patches: Vec<Patch>) -> PathBuf {

@@ -397,48 +397,52 @@ fn main() {
                 continue;
             }
 
-            match settings.projects.get(&project.link_name) {
-                None => {
-                    debug!("Project {} not configured for patch {}",
-                           &project.link_name, patch.name);
+            let project = if let Some(p) = settings.projects.get(&project.link_name) {
+                p
+            } else {
+                debug!("Project {} not configured for patch {}",
+                       &project.link_name, patch.name);
+                continue;
+            };
+
+            let series = if let Some(url) = patch.series.first() {
+                debug!("Patch {} has a series at: {}", &patch.name, url);
+                Some(patchwork.get_series_by_url(url).unwrap())
+            } else {
+                None
+            };
+
+            // this if is *gross*
+            if series.is_some() && !(series.as_ref().unwrap().received_all) {
+                    debug!("Series is incomplete, skipping patch for now");
                     continue;
-                },
-                Some(project) => {
-                    // TODO(ajd): Refactor this.
-                    let hefty_tests;
-                    let mbox = if patch.has_series() {
-                        debug!("Patch {} has a series at {}!", &patch.name, &patch.series[0]);
-                        let series = patchwork.get_series_by_url(&patch.series[0]).unwrap(); // TODO(ajd): Fix this unwrap
-                        if !series.received_all {
-                            debug!("Series is incomplete, skipping patch for now");
-                            continue;
-                        }
-                        let dependencies = patchwork.get_patch_dependencies(&patch);
-                        hefty_tests = dependencies.len() == series.patches.len();
-                        patchwork.get_patches_mbox(dependencies)
-                    } else {
-                        hefty_tests = true;
-                        patchwork.get_patch_mbox(&patch)
-                    };
+            }
 
-                    let results = test_patch(&settings, &client, project, &mbox, hefty_tests);
-
-                    // Delete the temporary directory with the patch in it
-                    fs::remove_dir_all(mbox.parent().unwrap()).unwrap_or_else(
-                        |err| error!("Couldn't delete temp directory: {}", err));
-                    if project.push_results {
-                        for result in results {
-                            patchwork.post_test_result(result, &patch.checks).unwrap();
-                        }
-                    }
-                    if args.flag_count > 0 {
-                        patch_count += 1;
-                        debug!("Tested {} patches out of {}",
-                               patch_count, args.flag_count);
-                        if patch_count >= args.flag_count {
-                            break 'daemon;
-                        }
-                    }
+            // So  I think compared to the previous version of this, we're fetching the series twice.
+            let hefty_tests = if patch.has_series() {
+                patchwork.get_patch_dependencies(&patch).len() ==
+                    series.unwrap().patches.len()
+            } else {
+                true
+            };
+            
+            let mbox = patchwork.get_patch_mbox(&patch);
+            let results = test_patch(&settings, &client, project, &mbox, hefty_tests);
+            
+            // Delete the temporary directory with the patch in it
+            fs::remove_dir_all(mbox.parent().unwrap()).unwrap_or_else(
+                |err| error!("Couldn't delete temp directory: {}", err));
+            if project.push_results {
+                for result in results {
+                    patchwork.post_test_result(result, &patch.checks).unwrap();
+                }
+            }
+            if args.flag_count > 0 {
+                patch_count += 1;
+                debug!("Tested {} patches out of {}",
+                       patch_count, args.flag_count);
+                if patch_count >= args.flag_count {
+                    break 'daemon;
                 }
             }
         }
