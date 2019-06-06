@@ -46,6 +46,9 @@ pub struct Patchwork {
     pub pass: Option<String>,
     pub token: Option<String>,
     pub polling_interval: u64,
+    // TODO: It would be nice to verify that the hooks exist somehow before we kick off jobs,
+    // but that might be annoying to do
+    pub results_hooks: Option<Vec<String>>,
 }
 
 // TODO: make this CI server agnostic (i.e buildbot or whatever)

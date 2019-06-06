@@ -17,9 +17,10 @@
 use std;
 use std::collections::BTreeMap;
 use std::fs::{File, OpenOptions};
-use std::io;
+use std::io::{self, Write};
 use std::option::Option;
 use std::path::PathBuf;
+use std::process::{Command, Stdio};
 use std::result::Result;
 
 use tempdir::TempDir;
@@ -155,7 +156,7 @@ pub struct SeriesSummary {
     pub mbox: String,
 }
 
-#[derive(Serialize, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, PartialEq)]
 pub enum TestState {
     #[serde(rename = "pending")]
     Pending,
@@ -174,7 +175,7 @@ impl Default for TestState {
 }
 
 // /api/1.0/series/*/revisions/*/test-results/
-#[derive(Serialize, Default, Clone)]
+#[derive(Serialize, Deserialize, Default, Clone)]
 pub struct TestResult {
     pub state: TestState,
     pub target_url: Option<String>,
@@ -207,10 +208,15 @@ pub struct PatchworkServer {
     pub url: String,
     headers: HeaderMap,
     pub client: std::sync::Arc<Client>,
+    pub hooks: Option<Vec<String>>,
 }
 
 impl PatchworkServer {
-    pub fn new(url: &str, client: &std::sync::Arc<Client>) -> PatchworkServer {
+    pub fn new(
+        url: &str,
+        client: &std::sync::Arc<Client>,
+        hooks: &Option<Vec<String>>,
+    ) -> PatchworkServer {
         let mut headers = HeaderMap::new();
         // These .parse().unwrap() blocks are making sure it's a valid ASCII
         // header value.  They don't need to be refactored and hopefully in
@@ -220,6 +226,7 @@ impl PatchworkServer {
         PatchworkServer {
             url: url.to_string(),
             client: client.clone(),
+            hooks: hooks.clone(),
             headers,
         }
     }
@@ -262,14 +269,61 @@ impl PatchworkServer {
         Ok(String::from_utf8(body).unwrap())
     }
 
+    fn process_test_result(&self, result: &TestResult) -> String {
+        // Convert to JSON
+        let mut result_json = serde_json::to_string(&result).unwrap();
+
+        // Run hooks
+        if let Some(ref hooks) = self.hooks {
+            for hook in hooks {
+                let mut cmd = Command::new(hook)
+                    .stdin(Stdio::piped())
+                    .stdout(Stdio::piped())
+                    .spawn()
+                    .expect("Couldn't start hook");
+                cmd.stdin
+                    .as_mut()
+                    .expect("Failed to open hook stdin")
+                    .write_all(result_json.as_bytes())
+                    .expect("Failed to write to hook");
+                // TODO: Timeout if hook dies
+                let output = cmd.wait_with_output().expect("Couldn't get hook output");
+
+                if !output.status.success() {
+                    continue;
+                }
+                let new_json =
+                    String::from_utf8(output.stdout).expect("Couldn't decode hook output");
+
+                // If output is empty, then keep existing result
+                if new_json.is_empty() {
+                    continue;
+                }
+
+                // Validate that result is valid JSON
+                let new_result: Result<TestResult, serde_json::Error> =
+                    serde_json::from_str(&new_json);
+                match new_result {
+                    Ok(_) => result_json = new_json,
+                    Err(e) => error!(
+                        "Error in returned hook JSON: {}. Hook JSON: {}",
+                        e, new_json
+                    ),
+                }
+            }
+        }
+        result_json
+    }
+
     pub fn post_test_result(
         &self,
         result: &TestResult,
         checks_url: &str,
     ) -> Result<StatusCode, reqwest::Error> {
-        let encoded = serde_json::to_string(&result).unwrap();
+        let encoded = self.process_test_result(result);
         let headers = self.headers.clone();
         debug!("JSON Encoded: {}", encoded);
+
         let mut resp = try!(self
             .client
             .post(checks_url)

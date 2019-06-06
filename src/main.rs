@@ -386,7 +386,11 @@ fn run() -> Result<(), Box<Error>> {
         }
     });
 
-    let mut patchwork = PatchworkServer::new(&settings.patchwork.url, &client);
+    let mut patchwork = PatchworkServer::new(
+        &settings.patchwork.url,
+        &client,
+        &settings.patchwork.results_hooks,
+    );
     patchwork.set_authentication(
         &settings.patchwork.user,
         &settings.patchwork.pass,
