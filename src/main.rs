@@ -191,6 +191,7 @@ fn test_patch(
     client: &Arc<Client>,
     project: &Project,
     path: &Path,
+    title: Option<&str>,
     hefty_tests: bool,
 ) -> Vec<TestResult> {
     let repo = project.get_repo().unwrap();
@@ -208,6 +209,8 @@ fn test_patch(
     push_opts.remote_callbacks(push_callbacks);
 
     let mut successfully_applied = false;
+    let mut possibly_applied = false;
+
     for branch_name in project.branches.clone() {
         let tag = format!("{}_{}", tag, branch_name);
         info!("Configuring local branch for {}.", tag);
@@ -261,19 +264,35 @@ fn test_patch(
             }
             Err(_) => {
                 // It didn't apply.  No need to bother testing.
+
+                // Check if there's a patch with an identical title already in the repository
+                let mut possibly_applied_to_branch = false;
+                if let Some(title) = title {
+                    possibly_applied_to_branch = git::find_commit_with_title(&repo, title);
+                }
+
                 results.push(TestResult {
                     state: TestState::Warning,
-                    description: Some(
+                    description: Some(if possibly_applied_to_branch {
+                        format!(
+                            "Failed to apply on branch {} ({}) (possibly already applied)",
+                            branch_name.to_string(),
+                            commit.id().to_string()
+                        )
+                        .to_string()
+                    } else {
                         format!(
                             "Failed to apply on branch {} ({})",
                             branch_name.to_string(),
                             commit.id().to_string()
                         )
-                        .to_string(),
-                    ),
+                        .to_string()
+                    }),
                     context: Some("apply_patch".to_string()),
                     ..Default::default()
                 });
+
+                possibly_applied = possibly_applied || possibly_applied_to_branch;
                 continue;
             }
         }
@@ -310,8 +329,13 @@ fn test_patch(
     }
 
     if !successfully_applied {
+        // If at least one branch found a commit with the same title, then use Warning rather than Fail
         results.push(TestResult {
-            state: TestState::Fail,
+            state: if possibly_applied {
+                TestState::Warning
+            } else {
+                TestState::Fail
+            },
             description: Some("Failed to apply to any branch".to_string()),
             context: Some("apply_patch".to_string()),
             ..Default::default()
@@ -398,7 +422,7 @@ fn run() -> Result<(), Box<Error>> {
                 } else {
                     patchwork.get_patch_mbox(&patch)
                 };
-                test_patch(&settings, &client, &project, &mbox, true);
+                test_patch(&settings, &client, &project, &mbox, Some(&patch.name), true);
             }
         }
         return Ok(());
@@ -416,7 +440,8 @@ fn run() -> Result<(), Box<Error>> {
             Some(project) => {
                 let dependencies = patchwork.get_patch_dependencies(&patch);
                 let mbox = patchwork.get_patches_mbox(dependencies);
-                let results = test_patch(&settings, &client, &project, &mbox, true);
+                let results =
+                    test_patch(&settings, &client, &project, &mbox, Some(&patch.name), true);
 
                 // Delete the temporary directory with the patch in it
                 fs::remove_dir_all(mbox.parent().unwrap())
@@ -437,7 +462,8 @@ fn run() -> Result<(), Box<Error>> {
     if args.flag_mbox != "" {
         info!("snowpatch is testing a local patch.");
         let patch = Path::new(&args.flag_mbox);
-        test_patch(&settings, &client, &project, patch, true);
+        // TODO: Can't match patch title
+        test_patch(&settings, &client, &project, patch, None, true);
 
         return Ok(());
     }
@@ -517,7 +543,14 @@ fn run() -> Result<(), Box<Error>> {
                 patchwork.get_patch_mbox(&patch)
             };
 
-            let results = test_patch(&settings, &client, &project, &mbox, hefty_tests);
+            let results = test_patch(
+                &settings,
+                &client,
+                &project,
+                &mbox,
+                Some(&patch.name),
+                hefty_tests,
+            );
 
             // Delete the temporary directory with the patch in it
             fs::remove_dir_all(mbox.parent().unwrap())

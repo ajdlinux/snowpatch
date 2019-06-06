@@ -155,3 +155,18 @@ pub fn cred_from_settings(settings: &Git) -> Result<Cred, Error> {
         passphrase,
     )
 }
+
+pub fn find_commit_with_title(repo: &Repository, title: &str) -> bool {
+    let workdir = repo.workdir().unwrap();
+
+    // TODO: Perhaps limit this to a certain number of commits, etc
+    let result = Command::new("git")
+        .arg("log")
+        .arg("--oneline")
+        .arg("--grep")
+        .arg(title)
+        .current_dir(&workdir)
+        .output()
+        .expect("Couldn't run git");
+    !result.stdout.is_empty()
+}
