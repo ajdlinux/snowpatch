@@ -50,6 +50,7 @@ port = 443 # optional
 user = "ruscur"
 pass = "banana"
 polling_interval = 10 # polling interval in minutes
+hooks = ["examples/hooks/encouragement.py"]
 ```
 
 - `url`: base URL of the Patchwork instance
@@ -64,6 +65,8 @@ polling_interval = 10 # polling interval in minutes
 
 - `polling_interval`: Patchwork polling interval, in minutes
 
+- `hooks`: list of external scripts to be run before posting test results (see
+  hooks.md) (optional)
 
 Jenkins Configuration
 ---------------------
