@@ -25,6 +25,7 @@ port = 443 # optional
 user = "ruscur" # optional, needed for pushing results
 pass = "banana" # optional, needed for pushing results
 polling_interval = 10 # polling interval in minutes
+hooks = ["examples/hooks/encouragement.py"]
 
 [jenkins]
 url = "https://jenkins.ozlabs.ibm.com"
